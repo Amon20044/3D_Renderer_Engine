@@ -2,6 +2,19 @@
 #include "glad/glad.h";
 #include "GLFW/glfw3.h";
 
+//Adding some basic callbacks
+void error_callback(int error, const char* description)
+{
+	fprintf(stderr, "Error: %s\n", description);
+}
+
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+}
+// callbacks
+
 int main() {
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -14,8 +27,10 @@ int main() {
 		glfwTerminate();
 		return -1;
 	}
+	glfwSetErrorCallback(error_callback);
 	glfwMakeContextCurrent(window);
 	gladLoadGL();
+	glfwSetKeyCallback(window, key_callback);
 
 	// swapping colour - in background instance - in front and back buffer
 	glClearColor(0.1f, 0.13f, 0.17f, 1.0f);
