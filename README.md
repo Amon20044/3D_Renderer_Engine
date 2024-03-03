@@ -1,6 +1,6 @@
-# Cube Rendering with OpenGL
+# Cube Rendering with C and OpenGL
 
-This code demonstrates rendering a rotating cube using OpenGL. The cube is illuminated with ambient, diffuse, and specular lighting.
+This code demonstrates rendering a rotating cube using C and OpenGL. The cube is illuminated with ambient, diffuse, and specular lighting.
 
 ## Libraries Used
 
@@ -41,8 +41,7 @@ This code demonstrates rendering a rotating cube using OpenGL. The cube is illum
 
 ## Output
 
-![Cube Rendering Output](![image](https://github.com/Amon20044/3D_Renderer_Engine/assets/111745899/2cb6f09f-99de-475a-a672-563b98fdf515)
-)
+![Cube Rendering Output](https://github.com/Amon20044/3D_Renderer_Engine/assets/111745899/2cb6f09f-99de-475a-a672-563b98fdf515)
 
 ## Conclusion
 
