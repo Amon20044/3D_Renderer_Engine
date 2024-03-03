@@ -1,23 +1,49 @@
 #include "stdio.h"
 #include "math.h"
 #include "glad/glad.h"
+#include "stdlib.h"
 #include "GLFW/glfw3.h"
 
 const char* vertexShaderSource = "#version 450 core\n"
 "layout (location=0) in vec3 aPos;\n"
+"layout (location=1) in vec3 aNormal;\n"
+"out vec3 FragPos;\n"
+"out vec3 Normal;\n"
+"uniform mat4 model;\n"
+"uniform mat4 view;\n"
+"uniform mat4 projection;\n"
 "void main()\n"
 "{\n"
-"    gl_Position = vec4(aPos.x , aPos.y, aPos.z, 1.0);\n"
+"    FragPos = vec3(model * vec4(aPos, 1.0));\n"
+"    Normal = mat3(transpose(inverse(model))) * aNormal;\n"
+"    gl_Position = projection * view * vec4(FragPos, 1.0);\n"
 "}\0";
 
 const char* fragmentShaderSource = "#version 450 core\n"
 "out vec4 FragColor;\n"
+"in vec3 FragPos;\n"
+"in vec3 Normal;\n"
+"uniform vec3 lightPos;\n"
+"uniform vec3 viewPos;\n"
 "void main()\n"
 "{\n"
-"    FragColor = vec4(0.4f , 0.6f, 0.7f, 1.0f);\n"
+"    // Ambient lighting\n"
+"    float ambientStrength = 0.1;\n"
+"    vec3 ambient = ambientStrength * vec3(1.0, 1.0, 1.0);\n"
+"    // Diffuse lighting\n"
+"    vec3 lightDir = normalize(lightPos - FragPos);\n"
+"    float diff = max(dot(Normal, lightDir), 0.0);\n"
+"    vec3 diffuse = diff * vec3(1.0, 1.0, 1.0);\n"
+"    // Specular lighting\n"
+"    float specularStrength = 0.5;\n"
+"    vec3 viewDir = normalize(viewPos - FragPos);\n"
+"    vec3 reflectDir = reflect(-lightDir, Normal);\n"
+"    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);\n"
+"    vec3 specular = specularStrength * spec * vec3(1.0, 1.0, 1.0);\n"
+"    vec3 lighting = (ambient + diffuse + specular) * vec3(0.4, 0.6, 0.7);\n"
+"    FragColor = vec4(lighting, 1.0);\n"
 "}\n\0";
 
-// Adding some basic callbacks
 void error_callback(int error, const char* description)
 {
     fprintf(stderr, "Error: %s\n", description);
@@ -29,121 +55,187 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
+// random rotation
+
+float randomFloat() {
+    return (float)rand() / RAND_MAX * 4.0f - 2.0f;
+}
+// Function to normalize a vector
+void normalizeVec3(float* vec) {
+    float length = sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
+    vec[0] /= length;
+    vec[1] /= length;
+    vec[2] /= length;
+}
+
+// Function to generate a random rotation matrix
+void randomRotationMatrix(float angle, float* rotationMatrix, float rotationSpeedFactor) {
+    // Normalize axis
+    float axis[3] = { 2.0f, 3.0f, 1.0f };
+    normalizeVec3(axis);
+
+    // Calculate sines and cosines of the angle
+    float cosAngle = cosf(angle);
+    float sinAngle = sinf(angle);
+    float oneMinusCosAngle = 1.0f - cosAngle;
+
+    // Fill in the rotation matrix
+    rotationMatrix[0] = axis[0] * axis[0] * oneMinusCosAngle + cosAngle;
+    rotationMatrix[1] = axis[0] * axis[1] * oneMinusCosAngle - axis[2] * sinAngle;
+    rotationMatrix[2] = axis[0] * axis[2] * oneMinusCosAngle + axis[1] * sinAngle;
+    rotationMatrix[3] = 0.0f;
+
+    rotationMatrix[4] = axis[1] * axis[0] * oneMinusCosAngle + axis[2] * sinAngle;
+    rotationMatrix[5] = axis[1] * axis[1] * oneMinusCosAngle + cosAngle;
+    rotationMatrix[6] = axis[1] * axis[2] * oneMinusCosAngle - axis[0] * sinAngle;
+    rotationMatrix[7] = 0.0f;
+
+    rotationMatrix[8] = axis[2] * axis[0] * oneMinusCosAngle - axis[1] * sinAngle;
+    rotationMatrix[9] = axis[2] * axis[1] * oneMinusCosAngle + axis[0] * sinAngle;
+    rotationMatrix[10] = axis[2] * axis[2] * oneMinusCosAngle + cosAngle;
+    rotationMatrix[11] = 0.0f;
+
+    rotationMatrix[12] = 0.0f;
+    rotationMatrix[13] = 0.0f;
+    rotationMatrix[14] = 0.0f;
+    rotationMatrix[15] = 1.0f;
+}
+
+
+
+
 int main() {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    // telling glfw about using the CORE profile and modern functions
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    // making triangle
-    // vertices coordinates (x,y,z) format
-    GLfloat vertices[] = {
-        -0.5f, -0.5f * 1.73205081 / 3, 0.0f, // lower left
-        0.5f, -0.5f * 1.73205081 / 3, 0.0f, // lower right
-        0.0f, 0.5f * 1.73205081 * 2 / 3, 0.0f, // upper corner
-        -0.5f / 2, 0.5f * 1.73205081 / 6, 0.0f, //  inner left
-        0.5f / 2, 0.5f * 1.73205081 / 6, 0.0f, //  inner right
-        0.0f, -0.5f * 1.73205081 / 3, 0.0f,  // inner down
-    };
 
-    GLuint indices[] = {
-        0, 3, 5, // lower left
-        3, 2, 4, // lower right
-        5, 4, 1 // upper
-    };
-
-    // create a GLFW window of 1200 by 800 px
-    GLFWwindow* window = glfwCreateWindow(1200, 800, "MyFirstOpenGL_MA202Project", NULL, NULL);
+    srand(time(NULL));
+    GLFWwindow* window = glfwCreateWindow(800, 800, "Cube Rendering", NULL, NULL);
     if (window == NULL) {
-        // error checking
         printf("Failed to create window\n");
         glfwTerminate();
         return -1;
     }
-    // setting callback event during error handling
     glfwSetErrorCallback(error_callback);
-    // getting window context so that we can use it current window and change the data in it
     glfwMakeContextCurrent(window);
     gladLoadGL();
     glfwSetKeyCallback(window, key_callback);
 
-    glViewport(0, 0, 1200, 800);
-
-    // swapping color - in background instance - in front and back buffer
+    glViewport(0, 0, 800, 800);
     glClearColor(0.1f, 0.13f, 0.17f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glfwSwapBuffers(window);
 
-    // create vertex shader object and get reference
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    // attach vertex shader source to vertex shader object
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    // compile the vertex shader object into machine code
     glCompileShader(vertexShader);
 
-    // create vertex shader fragment and get reference
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    // attach fragment shader source to fragment shader object
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    // compile fragment shader object
     glCompileShader(fragmentShader);
 
-    // create shader program object and get its reference
     GLuint shaderProgram = glCreateProgram();
-    // attaching vertex and fragment objects to shaderprogram object
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
-    // Wrap-up / Link all shaders together
     glLinkProgram(shaderProgram);
 
-    // deleting useless stuff for optimization
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    // VBO . VAO . EBO
+    GLfloat vertices[] = {
+        // Front face
+        -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f,
+         0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f,
+         0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f,
+        -0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f,
+        // Back face
+        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
+         0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
+         0.5f,  0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
+        -0.5f,  0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
+    };
 
-    // creating reference container for vertex buffer object and vertex buffer array
+    GLuint indices[] = {
+        0, 1, 2, // Front face
+        2, 3, 0,
+        4, 5, 6, // Back face
+        6, 7, 4,
+        0, 4, 7, // Left face
+        7, 3, 0,
+        1, 5, 6, // Right face
+        6, 2, 1,
+        3, 2, 6, // Top face
+        6, 7, 3,
+        0, 1, 5, // Bottom face
+        5, 4, 0,
+    };
+
     GLuint VertexBufferObject, VertexBufferArray, ElementBufferObject;
-
-    // generate the VAO (vertex buffer array object / vertex array object) and VBO with 1 object each
     glGenVertexArrays(1, &VertexBufferArray);
-    glGenBuffers(1, &VertexBufferObject); // specifying number of objects to be rendered and pointing it to the reference
+    glGenBuffers(1, &VertexBufferObject);
     glGenBuffers(1, &ElementBufferObject);
 
-    // make the VAO the current VAO by binding it
     glBindVertexArray(VertexBufferArray);
-    // bind the VBO specifying it is a GL_ARRAY_BUFFER
     glBindBuffer(GL_ARRAY_BUFFER, VertexBufferObject);
-    // introduce the vertices into the VBO
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); // specify for optimization
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ElementBufferObject);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    // configure the vertex attribute so that openGL knows how to read the VBO
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    // enable the vertex attribute so that opengl knows how to use it
+    // Position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
+    // Normal attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
 
-    // bind both the VBO and VAO to 0 so that we don't accidentally modify the VAO and VBO
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    // making triangle
+
+    GLfloat angle = 1.0f;
+    double lastTime = glfwGetTime();
+    GLfloat speedFactor = 0.001f;
+    // Set up light source properties
+    GLfloat lightPos[] = { 1.0f, 1.0f, 2.0f };
+    GLfloat viewPos[] = { 0.0f, 0.0f, 3.0f }; // Camera position
 
     while (!glfwWindowShouldClose(window)) {
+        double currentTime = glfwGetTime();
+        double deltaTime = currentTime - lastTime;
+        lastTime = currentTime;
+
         glClearColor(0.1f, 0.13f, 0.17f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        // tell OpenGL which shader program we want to use
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
         glUseProgram(shaderProgram);
-        // bind VAO so OpenGL knows how to use it
         glBindVertexArray(VertexBufferArray);
-        // glDrawArrays(GL_TRIANGLES, 0, 3);
 
-        glDrawElements(GL_TRIANGLES, 9, GL_UNSIGNED_INT, 0);
+        angle += deltaTime;
 
-        glfwSwapBuffers(window); // updating of window with generated buffers
-        // take care of all glfw events
+        // Rotation matrix around Z-axis
+        GLfloat rotationMatrix[16];
+        randomRotationMatrix(angle, rotationMatrix, speedFactor);
+
+        GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, rotationMatrix);
+
+        GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, rotationMatrix);
+
+        GLuint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, rotationMatrix);
+
+        GLuint lightPosLoc = glGetUniformLocation(shaderProgram, "lightPos");
+        glUniform3fv(lightPosLoc, 1, lightPos);
+
+        GLuint viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
+        glUniform3fv(viewPosLoc, 1, viewPos);
+
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+        glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
@@ -154,6 +246,6 @@ int main() {
 
     glfwDestroyWindow(window);
     glfwTerminate();
-    printf("Amon ! its easy - its just matter of time");
+    printf("Exiting...\n");
     return 0;
 }
