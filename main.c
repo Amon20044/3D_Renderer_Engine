@@ -4,6 +4,8 @@
 #include "stdlib.h"
 #include "GLFW/glfw3.h"
 
+#define M_PI 3.14159265358979323846
+
 const char* vertexShaderSource = "#version 450 core\n"
 "layout (location=0) in vec3 aPos;\n"
 "layout (location=1) in vec3 aNormal;\n"
@@ -55,12 +57,54 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-// random rotation
-
-float randomFloat() {
-    return (float)rand() / RAND_MAX * 4.0f - 2.0f;
+void multiplyMat4(float* mat1, float* mat2, float* result) {
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            result[i * 4 + j] = 0.0f;
+            for (int k = 0; k < 4; ++k) {
+                result[i * 4 + j] += mat1[i * 4 + k] * mat2[k * 4 + j];
+            }
+        }
+    }
 }
-// Function to normalize a vector
+
+void transposeMat4(float* mat, float* result) {
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            result[i * 4 + j] = mat[j * 4 + i];
+        }
+    }
+}
+
+void inverseMat4(float* mat, float* result) {
+    float det = mat[0] * (mat[5] * mat[10] - mat[6] * mat[9]) -
+        mat[1] * (mat[4] * mat[10] - mat[6] * mat[8]) +
+        mat[2] * (mat[4] * mat[9] - mat[5] * mat[8]);
+
+    if (det == 0.0f) return; // Singular matrix
+
+    float invDet = 1.0f / det;
+
+    result[0] = (mat[5] * mat[10] - mat[6] * mat[9]) * invDet;
+    result[1] = -(mat[1] * mat[10] - mat[2] * mat[9]) * invDet;
+    result[2] = (mat[1] * mat[6] - mat[2] * mat[5]) * invDet;
+    result[3] = 0.0f;
+
+    result[4] = -(mat[4] * mat[10] - mat[6] * mat[8]) * invDet;
+    result[5] = (mat[0] * mat[10] - mat[2] * mat[8]) * invDet;
+    result[6] = -(mat[0] * mat[6] - mat[2] * mat[4]) * invDet;
+    result[7] = 0.0f;
+
+    result[8] = (mat[4] * mat[9] - mat[5] * mat[8]) * invDet;
+    result[9] = -(mat[0] * mat[9] - mat[1] * mat[8]) * invDet;
+    result[10] = (mat[0] * mat[5] - mat[1] * mat[4]) * invDet;
+    result[11] = 0.0f;
+
+    result[12] = -(mat[12] * result[0] + mat[13] * result[4] + mat[14] * result[8]);
+    result[13] = -(mat[12] * result[1] + mat[13] * result[5] + mat[14] * result[9]);
+    result[14] = -(mat[12] * result[2] + mat[13] * result[6] + mat[14] * result[10]);
+    result[15] = 1.0f;
+}
 void normalizeVec3(float* vec) {
     float length = sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
     vec[0] /= length;
@@ -102,8 +146,6 @@ void randomRotationMatrix(float angle, float* rotationMatrix, float rotationSpee
 }
 
 
-
-
 int main() {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -124,8 +166,7 @@ int main() {
 
     glViewport(0, 0, 800, 800);
     glClearColor(0.1f, 0.13f, 0.17f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glfwSwapBuffers(window);
+    glEnable(GL_DEPTH_TEST);
 
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
@@ -194,11 +235,11 @@ int main() {
     glBindVertexArray(0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    GLfloat angle = 1.0f;
+    GLfloat angle = 0.0f;
     double lastTime = glfwGetTime();
-    GLfloat speedFactor = 0.001f;
+    GLfloat speedFactor = 0.1f;
     // Set up light source properties
-    GLfloat lightPos[] = { 1.0f, 1.0f, 2.0f };
+    GLfloat lightPos[] = { 0.0f, 2.0f, 0.0f }; // Fixed light position
     GLfloat viewPos[] = { 0.0f, 0.0f, 3.0f }; // Camera position
 
     while (!glfwWindowShouldClose(window)) {
@@ -208,15 +249,14 @@ int main() {
 
         glClearColor(0.1f, 0.13f, 0.17f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glEnable(GL_DEPTH_TEST);
         glUseProgram(shaderProgram);
         glBindVertexArray(VertexBufferArray);
-
-        angle += deltaTime;
+        glDisable(GL_CULL_FACE);
+        angle += deltaTime * speedFactor;
 
         // Rotation matrix around Z-axis
         GLfloat rotationMatrix[16];
-        randomRotationMatrix(angle, rotationMatrix, speedFactor);
+        randomRotationMatrix(angle, rotationMatrix , speedFactor);
 
         GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, rotationMatrix);
