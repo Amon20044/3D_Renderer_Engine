@@ -1,7 +1,6 @@
 #include "stdio.h"
 #include "math.h"
 #include "glad/glad.h"
-#include "stdlib.h"
 #include "GLFW/glfw3.h"
 
 #define M_PI 3.14159265358979323846
@@ -14,6 +13,56 @@ const char* vertexShaderSource = "#version 450 core\n"
 "uniform mat4 model;\n"
 "uniform mat4 view;\n"
 "uniform mat4 projection;\n"
+
+"mat4 transpose(in mat4 inMatrix) {\n"
+"    mat4 outMatrix;\n"
+"    for (int i = 0; i < 4; ++i)\n"
+"        for (int j = 0; j < 4; ++j)\n"
+"            outMatrix[j][i] = inMatrix[i][j];\n"
+"    return outMatrix;\n"
+"}\n"
+
+"mat4 inverse(in mat4 inMatrix) {\n"
+"    float a00 = inMatrix[0][0], a01 = inMatrix[0][1], a02 = inMatrix[0][2], a03 = inMatrix[0][3];\n"
+"    float a10 = inMatrix[1][0], a11 = inMatrix[1][1], a12 = inMatrix[1][2], a13 = inMatrix[1][3];\n"
+"    float a20 = inMatrix[2][0], a21 = inMatrix[2][1], a22 = inMatrix[2][2], a23 = inMatrix[2][3];\n"
+"    float a30 = inMatrix[3][0], a31 = inMatrix[3][1], a32 = inMatrix[3][2], a33 = inMatrix[3][3];\n"
+"    float b00 = a00 * a11 - a01 * a10;\n"
+"    float b01 = a00 * a12 - a02 * a10;\n"
+"    float b02 = a00 * a13 - a03 * a10;\n"
+"    float b03 = a01 * a12 - a02 * a11;\n"
+"    float b04 = a01 * a13 - a03 * a11;\n"
+"    float b05 = a02 * a13 - a03 * a12;\n"
+"    float b06 = a20 * a31 - a21 * a30;\n"
+"    float b07 = a20 * a32 - a22 * a30;\n"
+"    float b08 = a20 * a33 - a23 * a30;\n"
+"    float b09 = a21 * a32 - a22 * a31;\n"
+"    float b10 = a21 * a33 - a23 * a31;\n"
+"    float b11 = a22 * a33 - a23 * a32;\n"
+"    float det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;\n"
+"    if (det == 0.0)\n"
+"        return mat4(0.0);\n"
+"    mat4 outMatrix;\n"
+"    float invDet = 1.0 / det;\n"
+"    outMatrix[0][0] = (a11 * b11 - a12 * b10 + a13 * b09) * invDet;\n"
+"    outMatrix[0][1] = (-a01 * b11 + a02 * b10 - a03 * b09) * invDet;\n"
+"    outMatrix[0][2] = (a31 * b05 - a32 * b04 + a33 * b03) * invDet;\n"
+"    outMatrix[0][3] = (-a21 * b05 + a22 * b04 - a23 * b03) * invDet;\n"
+"    outMatrix[1][0] = (-a10 * b11 + a12 * b08 - a13 * b07) * invDet;\n"
+"    outMatrix[1][1] = (a00 * b11 - a02 * b08 + a03 * b07) * invDet;\n"
+"    outMatrix[1][2] = (-a30 * b05 + a32 * b02 - a33 * b01) * invDet;\n"
+"    outMatrix[1][3] = (a20 * b05 - a22 * b02 + a23 * b01) * invDet;\n"
+"    outMatrix[2][0] = (a10 * b10 - a11 * b08 + a13 * b06) * invDet;\n"
+"    outMatrix[2][1] = (-a00 * b10 + a01 * b08 - a03 * b06) * invDet;\n"
+"    outMatrix[2][2] = (a30 * b04 - a31 * b02 + a33 * b00) * invDet;\n"
+"    outMatrix[2][3] = (-a20 * b04 + a21 * b02 - a23 * b00) * invDet;\n"
+"    outMatrix[3][0] = (-a10 * b09 + a11 * b07 - a12 * b06) * invDet;\n"
+"    outMatrix[3][1] = (a00 * b09 - a01 * b07 + a02 * b06) * invDet;\n"
+"    outMatrix[3][2] = (-a30 * b03 + a31 * b01 - a32 * b00) * invDet;\n"
+"    outMatrix[3][3] = (a20 * b03 - a21 * b01 + a22 * b00) * invDet;\n"
+"    return outMatrix;\n"
+"}\n"
+
 "void main()\n"
 "{\n"
 "    FragPos = vec3(model * vec4(aPos, 1.0));\n"
@@ -21,12 +70,34 @@ const char* vertexShaderSource = "#version 450 core\n"
 "    gl_Position = projection * view * vec4(FragPos, 1.0);\n"
 "}\0";
 
+
 const char* fragmentShaderSource = "#version 450 core\n"
 "out vec4 FragColor;\n"
 "in vec3 FragPos;\n"
 "in vec3 Normal;\n"
 "uniform vec3 lightPos;\n"
 "uniform vec3 viewPos;\n"
+
+"vec3 normalize(vec3 v) {\n"
+"    float inv_length = 1.0 / sqrt(dot(v, v));\n"
+"    return v * inv_length;\n"
+"}\n"
+
+"float max(float x, float y) {\n"
+"    return x > y ? x : y;\n"
+"}\n"
+
+"float pow(float x, float y) {\n"
+"    float result = 1.0;\n"
+"    for (int i = 0; i < int(y); ++i)\n"
+"        result *= x;\n"
+"    return result;\n"
+"}\n"
+
+"float dot(vec3 x, vec3 y) {\n"
+"    return x.x * y.x + x.y * y.y + x.z * y.z;\n"
+"}\n"
+
 "void main()\n"
 "{\n"
 "    // Ambient lighting\n"
@@ -112,6 +183,7 @@ void normalizeVec3(float* vec) {
     vec[2] /= length;
 }
 
+// made by me
 // Function to generate a random rotation matrix
 void randomRotationMatrix(float angle, float* rotationMatrix, float rotationSpeedFactor) {
     // Normalize axis
