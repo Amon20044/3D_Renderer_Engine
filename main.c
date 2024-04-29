@@ -183,7 +183,6 @@ void normalizeVec3(float* vec) {
     vec[2] /= length;
 }
 
-// made by me
 // Function to generate a random rotation matrix
 void randomRotationMatrix(float angle, float* rotationMatrix, float rotationSpeedFactor) {
     // Normalize axis
@@ -216,6 +215,7 @@ void randomRotationMatrix(float angle, float* rotationMatrix, float rotationSpee
     rotationMatrix[14] = 0.0f;
     rotationMatrix[15] = 1.0f;
 }
+ 
 
 
 int main() {
@@ -325,7 +325,7 @@ int main() {
         glBindVertexArray(VertexBufferArray);
         glDisable(GL_CULL_FACE);
         angle += deltaTime * speedFactor;
-
+ 
         // Rotation matrix around Z-axis
         GLfloat rotationMatrix[16];
         randomRotationMatrix(angle, rotationMatrix , speedFactor);
@@ -346,7 +346,7 @@ int main() {
         glUniform3fv(viewPosLoc, 1, viewPos);
 
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-
+      
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -355,7 +355,7 @@ int main() {
     glDeleteBuffers(1, &VertexBufferObject);
     glDeleteBuffers(1, &ElementBufferObject);
     glDeleteProgram(shaderProgram);
-
+    
     glfwDestroyWindow(window);
     glfwTerminate();
     printf("Exiting...\n");
